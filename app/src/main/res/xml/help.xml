@@ -2,7 +2,7 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <PreferenceCategory
-        android:title="@string/actions">
+        android:title="@string/settings">
         <Preference
             android:icon="@drawable/ic_baseline_refresh_24"
             android:title="@string/reset_title"
@@ -13,7 +13,26 @@
             android:title="@string/auto_shell_title"
             android:summary="@string/auto_shell_summary"
             android:key="@string/auto_shell_key"
+            android:dependency="@string/auto_pair_key"
             android:defaultValue="true"/>
+        <SwitchPreference
+            android:icon="@drawable/ic_baseline_home_repair_service_24"
+            android:title="@string/auto_pair_title"
+            android:summary="@string/auto_pair_summary"
+            android:key="@string/auto_pair_key"
+            android:defaultValue="true"/>
+        <EditTextPreference
+            android:icon="@drawable/ic_baseline_home_repair_service_24"
+            android:title="@string/buffer_size_title"
+            android:summary="@string/buffer_size_summary"
+            android:key="@string/buffer_size_key"
+            android:defaultValue="16384"/>
+        <EditTextPreference
+            android:icon="@drawable/ic_baseline_home_repair_service_24"
+            android:title="@string/startup_command_title"
+            android:summary="@string/startup_command_summary"
+            android:key="@string/startup_command_key"
+            android:defaultValue="echo 'Success! ※\\(^o^)/※'"/>
     </PreferenceCategory>
     <PreferenceCategory
         android:title="@string/troubleshooting">

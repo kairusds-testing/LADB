@@ -1,6 +1,7 @@
 package com.draco.ladb.utils
 
 import android.content.Context
+import android.os.Build
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.preference.PreferenceManager
@@ -12,6 +13,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
 import java.io.PrintStream
+import java.lang.NumberFormatException
 
 class ADB(private val context: Context) {
     companion object {
@@ -54,6 +56,18 @@ class ADB(private val context: Context) {
     private var shellProcess: Process? = null
 
     /**
+     * Returns the user buffer size if valid, else the default
+     */
+    fun getOutputBufferSize(): Int {
+        val userValue = sharedPrefs.getString(context.getString(R.string.buffer_size_key), "16384")!!
+        return try {
+            Integer.parseInt(userValue)
+        } catch (_: NumberFormatException) {
+            MAX_OUTPUT_BUFFER_SIZE
+        }
+    }
+
+    /**
      * Decide how to initialize the shellProcess variable
      */
     fun initializeClient() {
@@ -61,47 +75,50 @@ class ADB(private val context: Context) {
             return
 
         val autoShell = sharedPrefs.getBoolean(context.getString(R.string.auto_shell_key), true)
-        if (autoShell)
-            initializeADBShell()
-        else
-            initializeShell()
+        val autoPair = sharedPrefs.getBoolean(context.getString(R.string.auto_pair_key), true)
+        val startupCommand = sharedPrefs.getString(context.getString(R.string.startup_command_key), "echo 'Success! ※\\(^o^)/※'")!!
+
+        initializeADBShell(autoShell, autoPair, startupCommand)
     }
 
     /**
      * Scan and make a connection to a wireless device
      */
-    private fun initializeADBShell() {
-        debug("Starting ADB client")
-        adb(false, listOf("start-server"))?.waitFor()
-        debug("Waiting for device to be found")
-        adb(false, listOf("wait-for-device"))?.waitFor()
+    private fun initializeADBShell(autoShell: Boolean, autoPair: Boolean, startupCommand: String) {
+        if (autoPair) {
+            debug("Starting ADB client")
+            adb(false, listOf("start-server"))?.waitFor()
+            debug("Waiting for device respond (max 5m)")
+            adb(false, listOf("wait-for-device"))?.waitFor()
+        }
+
 
         debug("Shelling into device")
-        val process = adb(true, listOf("-t", "1", "shell"))
+        val process = if (autoShell && autoPair) {
+            val argList = if (Build.SUPPORTED_ABIS[0] == "arm64-v8a")
+                listOf("-t", "1", "shell")
+            else
+                listOf("shell")
+            adb(true, argList)
+        } else
+            shell(true, listOf("sh", "-l"))
+
         if (process == null) {
             debug("Failed to open shell connection")
             return
         }
         shellProcess = process
-        sendToShellProcess("echo 'Success! ※\\(^o^)/※'")
-        _ready.postValue(true)
 
-        startShellDeathThread()
-    }
-
-    /**
-     * Make a local shell instance
-     */
-    private fun initializeShell() {
-        debug("Shelling into device")
-        val process = shell(true, listOf("sh", "-l"))
-        if (process == null) {
-            debug("Failed to open shell connection")
-            return
-        }
-        shellProcess = process
         sendToShellProcess("alias adb=\"$adbPath\"")
-        sendToShellProcess("echo 'Success! ※\\(^o^)/※'")
+
+        if (autoShell && autoPair)
+            sendToShellProcess("echo 'NOTE: Dropped into ADB shell automatically'")
+        else
+            sendToShellProcess("echo 'NOTE: In unprivileged shell, not ADB shell'")
+
+        if (startupCommand.isNotEmpty())
+            sendToShellProcess(startupCommand)
+
         _ready.postValue(true)
 
         startShellDeathThread()
