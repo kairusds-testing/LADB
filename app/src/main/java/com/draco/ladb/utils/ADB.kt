@@ -15,6 +15,7 @@ import java.io.File
 import java.io.IOException
 import java.io.PrintStream
 import java.lang.NumberFormatException
+import java.util.concurrent.TimeUnit
 
 class ADB(private val context: Context) {
     companion object {
@@ -165,7 +166,7 @@ class ADB(private val context: Context) {
         val pairShell = adb(true, listOf("pair", "localhost:$port"))
 
         /* Sleep to allow shell to catch up */
-        Thread.sleep(1000)
+        Thread.sleep(5000)
 
         /* Pipe pairing code */
         PrintStream(pairShell?.outputStream).apply {
@@ -173,8 +174,8 @@ class ADB(private val context: Context) {
             flush()
         }
 
-        /* Continue once finished pairing */
-        pairShell?.waitFor()
+        /* Continue once finished pairing (or 10s elapses) */
+        pairShell?.waitFor(10, TimeUnit.SECONDS)
     }
 
     /**
