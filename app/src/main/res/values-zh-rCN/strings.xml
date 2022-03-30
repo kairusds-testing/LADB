@@ -3,6 +3,7 @@
 
     <string name="command_hint">Shell指令</string>
 
+    <string name="bookmarks">Bookmarks书签</string>
     <string name="last_command">上一个指令</string>
     <string name="help">帮助</string>
     <string name="share">分享</string>
