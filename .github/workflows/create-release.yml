@@ -38,7 +38,7 @@ jobs:
     - name: Upload binaries to a release
       uses: softprops/action-gh-release@v1
       with:
-        body: APK SHA-256 Checksum: ${{ env.APK_SHA256 }}
+        body: "APK SHA-256 Checksum: ${{ env.APK_SHA256 }}"
         files: ${{ env.APK_PATH }}
         tag_name: ${{ steps.apk-info.outputs.version-name }}
 
