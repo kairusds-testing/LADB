@@ -21,7 +21,7 @@ jobs:
     - name: Create debug build
       uses: gradle/gradle-build-action@v2
       with:
-        arguments: build
+        arguments: assembleDebug
 
     - name: Set environment variables
       run: |
