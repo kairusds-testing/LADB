@@ -17,12 +17,16 @@ import com.draco.ladb.R
 import com.draco.ladb.utils.ADB
 import com.github.javiersantos.piracychecker.PiracyChecker
 import com.github.javiersantos.piracychecker.piracyChecker
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.io.File
 
 class MainActivityViewModel(application: Application) : AndroidViewModel(application) {
     private val _outputText = MutableLiveData<String>()
     val outputText: LiveData<String> = _outputText
+
+    val isPairing = MutableLiveData<Boolean>()
 
     private var checker: PiracyChecker? = null
     private val sharedPreferences = PreferenceManager
@@ -44,17 +48,13 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    fun isAbiUnsupported() =
-            Build.SUPPORTED_64_BIT_ABIS.isNullOrEmpty() &&
-            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
-
     /**
      * Start the piracy checker if it is not setup yet (release builds only)
      *
      * @param activity Activity to use when showing the error
      */
     fun piracyCheck(activity: Activity) {
-        if (checker != null || BuildConfig.DEBUG)
+        if (checker != null || !BuildConfig.ANTI_PIRACY)
             return
 
         val context = getApplication<Application>().applicationContext
@@ -110,7 +110,8 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
         val context = getApplication<Application>().applicationContext
 
         if (!sharedPreferences.getBoolean(context.getString(R.string.paired_key), false) &&
-            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)) {
+            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+        ) {
             return true
         }
 
@@ -132,11 +133,18 @@ class MainActivityViewModel(application: Application) : AndroidViewModel(applica
 
         return when (intent.type) {
             "text/x-sh" -> {
-                val uri = Uri.parse(intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM).toString())
+                val extra = if (Build.VERSION.SDK_INT >= 33) {
+                    intent.getParcelableExtra(Intent.EXTRA_STREAM, Parcelable::class.java).toString()
+                } else {
+                    intent.getParcelableExtra<Parcelable?>(Intent.EXTRA_STREAM).toString()
+                }
+
+                val uri = Uri.parse(extra)
                 context.contentResolver.openInputStream(uri)?.bufferedReader().use {
                     it?.readText()
                 }
             }
+
             "text/plain" -> intent.getStringExtra(Intent.EXTRA_TEXT)
             else -> null
         }

@@ -21,7 +21,8 @@ class ADB(private val context: Context) {
         const val OUTPUT_BUFFER_DELAY_MS = 100L
 
         @SuppressLint("StaticFieldLeak")
-        @Volatile private var instance: ADB? = null
+        @Volatile
+        private var instance: ADB? = null
         fun getInstance(context: Context): ADB = instance ?: synchronized(this) {
             instance ?: ADB(context).also { instance = it }
         }
@@ -86,26 +87,44 @@ class ADB(private val context: Context) {
 
         if (autoShell) {
             /* Only do wireless debugging steps on compatible versions */
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                if (secureSettingsGranted && !isWirelessDebuggingEnabled()) {
+            if (secureSettingsGranted) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !isWirelessDebuggingEnabled()) {
                     debug("Enabling wireless debugging...")
                     Settings.Global.putInt(
                         context.contentResolver,
                         "adb_wifi_enabled",
                         1
                     )
+
+                    Thread.sleep(3_000)
+                } else if (!isUSBDebuggingEnabled()) {
+                    debug("Enabling USB debugging...")
+                    Settings.Global.putInt(
+                        context.contentResolver,
+                        Settings.Global.ADB_ENABLED,
+                        1
+                    )
+
                     Thread.sleep(3_000)
                 }
+            }
 
-                /* Check again... */
-                if (!isWirelessDebuggingEnabled()) {
-                    debug("Wireless debugging is not enabled!")
-                    debug("Settings -> Developer options -> Wireless debugging")
-                    debug("Waiting for wireless debugging...")
+            /* Check again... */
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !isWirelessDebuggingEnabled()) {
+                debug("Wireless debugging is not enabled!")
+                debug("Settings -> Developer options -> Wireless debugging")
+                debug("Waiting for wireless debugging...")
 
-                    while (!isWirelessDebuggingEnabled()) {
-                        Thread.sleep(1_000)
-                    }
+                while (!isWirelessDebuggingEnabled()) {
+                    Thread.sleep(1_000)
+                }
+            } else if (!isUSBDebuggingEnabled()) {
+                debug("USB debugging is not enabled!")
+                debug("Settings -> Developer options -> USB debugging")
+                debug("Waiting for USB debugging...")
+
+                while (!isUSBDebuggingEnabled()) {
+                    Thread.sleep(1_000)
                 }
             }
 
@@ -116,10 +135,9 @@ class ADB(private val context: Context) {
             val waitProcess = adb(false, listOf("wait-for-device")).waitFor(2, TimeUnit.MINUTES)
             if (!waitProcess) {
                 debug("Could not detect any devices")
-                debug("Make sure pairing info is correct:")
-                debug("More -> Factory reset")
-                debug("To try again, restart the server:")
-                debug("More -> Restart")
+                debug("Fix 1) Toggle Wi-Fi or reboot")
+                debug("Fix 2) Re-enter pairing information (More -> Factory Reset)")
+                debug("To try again, restart the server (More -> Restart)")
 
                 tryingToPair = false
                 return false
@@ -149,7 +167,8 @@ class ADB(private val context: Context) {
         else
             sendToShellProcess("echo 'Entered non-adb shell'")
 
-        val startupCommand = sharedPrefs.getString(context.getString(R.string.startup_command_key), "echo 'Success! ※\\(^o^)/※'")!!
+        val startupCommand =
+            sharedPrefs.getString(context.getString(R.string.startup_command_key), "echo 'Success! ※\\(^o^)/※'")!!
         if (startupCommand.isNotEmpty())
             sendToShellProcess(startupCommand)
 
@@ -161,6 +180,9 @@ class ADB(private val context: Context) {
 
     private fun isWirelessDebuggingEnabled() =
         Settings.Global.getInt(context.contentResolver, "adb_wifi_enabled", 0) == 1
+
+    private fun isUSBDebuggingEnabled() =
+        Settings.Global.getInt(context.contentResolver, Settings.Global.ADB_ENABLED, 0) == 1
 
     /**
      * Wait restart the shell once it dies
@@ -193,7 +215,7 @@ class ADB(private val context: Context) {
 
         /* Continue once finished pairing (or 10s elapses) */
         pairShell.waitFor(10, TimeUnit.SECONDS)
-        pairShell.destroyForcibly()
+        pairShell.destroyForcibly().waitFor()
         return pairShell.exitValue() == 0
     }
 
