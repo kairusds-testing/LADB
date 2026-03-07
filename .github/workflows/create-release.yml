@@ -18,10 +18,11 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Create debug build
-      uses: gradle/gradle-build-action@v2
-      with:
-        arguments: assembleDebug
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v5
+
+    - name: Build Debug
+      run: ./gradlew assembleDebug
 
     - name: Set environment variables
       run: |
@@ -36,15 +37,16 @@ jobs:
         apk-path: ${{ env.APK_PATH }}
 
     - name: Upload binaries to a release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         body: "APK SHA-256 Checksum: ${{ env.APK_SHA256 }}"
         files: ${{ env.APK_PATH }}
         tag_name: ${{ steps.apk-info.outputs.version-name }}
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v5
       with:
         name: LADB
         path: ${{ env.APK_PATH }}
+
 
